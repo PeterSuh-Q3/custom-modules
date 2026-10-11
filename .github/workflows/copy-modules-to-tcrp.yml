@@ -16,12 +16,12 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
 
     steps:
-      - name: Checkout dsm_linux master (source tarballs)
+      - name: Checkout custom-modules master (build artifacts)
         uses: actions/checkout@v4
         with:
-          repository: PeterSuh-Q3/dsm_linux
+          repository: PeterSuh-Q3/custom-modules
           ref: master
-          path: dsm_linux
+          path: custom-modules
 
       - name: Checkout tcrp-modules (destination)
         uses: actions/checkout@v4
@@ -49,12 +49,12 @@ jobs:
           for PLATFORM in epyc7002 geminilakenk r1000nk v1000nk; do
             TGZ="${PLATFORM}-${DSM_VER}-${KVER}.tgz"
             JSON="${PLATFORM}-${DSM_VER}.json"
-            SRC="dsm_linux/${TGZ}"
+            SRC="custom-modules/${TGZ}"
             DST="${RELEASES}/${TGZ}"
 
             if [ ! -f "$SRC" ]; then
-              echo "SKIP: $SRC not found"
-              continue
+              echo "ERROR: $SRC not found"
+              exit 1
             fi
 
             cp "$SRC" "$DST"
@@ -83,7 +83,7 @@ jobs:
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "sync: update module tarballs + sha256 from dsm_linux master (run ${{ github.run_id }})"
+            git commit -m "sync: update module tarballs + sha256 from custom-modules master (run ${{ github.run_id }})"
             git push origin main
           fi
 
@@ -93,15 +93,16 @@ jobs:
           DSM_VER="7.3"
           KVER="5.10.55"
           ZIMAGE_DST="redpill-load/ext/custom-zImage"
+          mkdir -p "$ZIMAGE_DST"
 
           for PLATFORM in epyc7002 geminilakenk r1000nk v1000nk; do
             BZIMAGE="bzImage-${PLATFORM}-${DSM_VER}-${KVER}.gz"
-            SRC="dsm_linux/${BZIMAGE}"
+            SRC="custom-modules/${BZIMAGE}"
             DST="${ZIMAGE_DST}/${BZIMAGE}"
 
             if [ ! -f "$SRC" ]; then
-              echo "SKIP: $SRC not found"
-              continue
+              echo "ERROR: $SRC not found"
+              exit 1
             fi
 
             cp "$SRC" "$DST"
@@ -118,6 +119,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "sync: update bzImage from dsm_linux master (run ${{ github.run_id }})"
+            git commit -m "sync: update bzImage from custom-modules master (run ${{ github.run_id }})"
             git push origin master
           fi
