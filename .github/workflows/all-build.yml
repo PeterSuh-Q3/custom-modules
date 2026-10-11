@@ -391,6 +391,7 @@ jobs:
             "CONFIG_NTFS_FS=m"
             "CONFIG_9P_FS=m"
             # --- ATA/스토리지 ---
+            "CONFIG_SATA_SIL24=m"
             # CONFIG_ATA_PIIX 제외: syno_libata_disk_power_loss_when_reboot 미정의 심볼
             # "CONFIG_ATA_PIIX=m"
             "CONFIG_SCSI_AIC94XX=m"
@@ -432,6 +433,9 @@ jobs:
 
           make olddefconfig
           echo "Applied EXTRA_OPTS for ${{ matrix.platform }}"
+
+          # The Synology defaults build sil24 into the kernel; require a loadable module.
+          grep -qx 'CONFIG_SATA_SIL24=m' .config
 
           # ✅ r1000nk / v1000nk: synoconfig에 CONFIG_DRM=not set → amdgpu 명시 활성화
           # epyc7002/geminilakenk는 synoconfig에 이미 DRM_AMDGPU 풀옵션 활성화되어 있으므로 제외
@@ -513,6 +517,8 @@ jobs:
 
             MODULES_INSTALL_DIR="$BUILD_OUTPUT_DIR/modules_root-${OUT_TAG}"
             make INSTALL_MOD_PATH="$MODULES_INSTALL_DIR" modules_install
+
+            test -f "$MODULES_INSTALL_DIR/lib/modules/$(make -s kernelrelease)/kernel/drivers/ata/sata_sil24.ko"
 
             KERNEL_VER_DIR=$(find "$MODULES_INSTALL_DIR/lib/modules" -maxdepth 1 -mindepth 1 -type d | head -1)
             FLAT_MODULES_DIR="$BUILD_OUTPUT_DIR/flat-modules-${OUT_TAG}"
