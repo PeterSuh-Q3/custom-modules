@@ -52,6 +52,9 @@ jobs:
       DSM_LINUX_REPO: "https://github.com/PeterSuh-Q3/dsm_linux.git"
 
     steps:
+      - name: Checkout build scripts
+        uses: actions/checkout@v4
+
       - name: Set runtime environment paths
         run: |
           echo "TOOLCHAIN_DIR=${{ runner.temp }}/toolchain"       >> $GITHUB_ENV
