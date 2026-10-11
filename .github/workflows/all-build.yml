@@ -100,6 +100,12 @@ jobs:
             -b "${{ matrix.dsm_linux_branch }}" \
             "$DSM_LINUX_REPO" "$KERNEL_SRC_DIR"
 
+      - name: Export Synology libata callbacks for sata_sil24
+        if: env.SKIP != 'true'
+        run: |
+          cd "$KERNEL_SRC_DIR"
+          python3 "${{ github.workspace }}/.github/scripts/export-sil24-symbols.py"
+
       - name: Locate toolchain and kernel source
         if: env.SKIP != 'true'
         id: locate
