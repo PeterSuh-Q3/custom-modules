@@ -231,13 +231,13 @@ MODULE_PARM_DESC(duplex_mode, "force phy operation. Deprecated by ethtool (8).")
 module_param(autoneg_mode, uint, 0);
 MODULE_PARM_DESC(autoneg_mode, "force phy operation. Deprecated by ethtool (8).");
 
-module_param(aspm, int, 0);
+module_param(aspm, int, 0444);
 MODULE_PARM_DESC(aspm, "Enable ASPM.");
 
-module_param(s5wol, int, 0);
+module_param(s5wol, int, 0444);
 MODULE_PARM_DESC(s5wol, "Enable Shutdown Wake On Lan.");
 
-module_param(s5_keep_curr_mac, int, 0);
+module_param(s5_keep_curr_mac, int, 0444);
 MODULE_PARM_DESC(s5_keep_curr_mac, "Enable Shutdown Keep Current MAC Address.");
 
 module_param(use_dac, int, 0);
@@ -246,7 +246,7 @@ MODULE_PARM_DESC(use_dac, "Enable PCI DAC. Unsafe on 32 bit PCI slot.");
 module_param(timer_count, int, 0);
 MODULE_PARM_DESC(timer_count, "Timer Interrupt Interval.");
 
-module_param(eee_enable, int, 0);
+module_param(eee_enable, int, 0444);
 MODULE_PARM_DESC(eee_enable, "Enable Energy Efficient Ethernet.");
 
 module_param(hwoptimize, ulong, 0);
@@ -255,16 +255,16 @@ MODULE_PARM_DESC(hwoptimize, "Enable HW optimization function.");
 module_param(s0_magic_packet, int, 0);
 MODULE_PARM_DESC(s0_magic_packet, "Enable S0 Magic Packet.");
 
-module_param(tx_no_close_enable, int, 0);
+module_param(tx_no_close_enable, int, 0444);
 MODULE_PARM_DESC(tx_no_close_enable, "Enable TX No Close.");
 
-module_param(disable_wol_support, int, 0);
+module_param(disable_wol_support, int, 0444);
 MODULE_PARM_DESC(disable_wol_support, "Disable PM support.");
 
 module_param(enable_double_vlan, int, 0);
 MODULE_PARM_DESC(enable_double_vlan, "Enable Double VLAN.");
 
-module_param(eee_giga_lite, int, 0);
+module_param(eee_giga_lite, int, 0444);
 MODULE_PARM_DESC(eee_giga_lite, "Enable Giga Lite.");
 
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
@@ -278,6 +278,7 @@ MODULE_FIRMWARE(FIRMWARE_8126A_2);
 MODULE_FIRMWARE(FIRMWARE_8126A_3);
 #endif
 
+#include "psq3_build.h"
 MODULE_VERSION(RTL8126_VERSION);
 
 /*
