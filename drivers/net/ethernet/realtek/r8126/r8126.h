@@ -626,7 +626,7 @@ static inline u32 rtl8126_ethtool_adv_to_mmd_eee_adv_cap2_t(u32 adv)
 #define RSS_SUFFIX ""
 #endif
 
-#define RTL8126_VERSION "10.016.00" NAPI_SUFFIX REALWOW_SUFFIX PTP_SUFFIX RSS_SUFFIX
+#define RTL8126_VERSION "10.016.00" NAPI_SUFFIX REALWOW_SUFFIX PTP_SUFFIX RSS_SUFFIX "-psq3.1"
 #ifndef MODULENAME
 #define MODULENAME "r8126"
 #endif
