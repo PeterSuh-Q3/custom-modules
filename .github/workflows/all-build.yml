@@ -9,7 +9,7 @@ on:
         default: 'epyc7002,geminilakenk,r1000nk,v1000nk,epyc7003,icelaked'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
