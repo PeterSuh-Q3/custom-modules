@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       platforms:
-        description: 'Build platforms (comma-separated: epyc7002,geminilakenk,r1000nk,v1000nk)'
+        description: 'Platform names (comma-separated; shared names build both DSM 7.3 and 7.4 targets)'
         required: false
-        default: 'epyc7002,geminilakenk,r1000nk,v1000nk'
+        default: 'epyc7002,geminilakenk,r1000nk,v1000nk,epyc7003,icelaked'
 
 jobs:
   build:
@@ -48,6 +48,54 @@ jobs:
             toolchain_key: "toolchain-v1000nk-7.3-86009"
             toolchain_url: "https://global.synologydownload.com/download/ToolChain/toolchain/7.3-86009/AMD%20x86%20Linux%205.10.55%20%28v1000nk%29/v1000nk-gcc1220_glibc236_x86_64-GPL.txz"
 
+          # 5) DSM 7.4 epyc7002
+          - dsm_version: "7.4"
+            platform: "epyc7002"
+            kernel_ver: "5.10.55"
+            dsm_linux_branch: "epyc7002-7.4-5.10.55"
+            toolchain_key: "toolchain-epyc7002-7.4-90080"
+            toolchain_url: "https://global.synologydownload.com/download/ToolChain/toolchain/7.4-90080/AMD%20x86%20Linux%20Linux%205.10.55%20%28epyc7002%29/epyc7002-gcc1220_glibc236_x86_64-GPL.txz"
+
+          # 6) DSM 7.4 geminilakenk
+          - dsm_version: "7.4"
+            platform: "geminilakenk"
+            kernel_ver: "5.10.55"
+            dsm_linux_branch: "geminilakenk-7.4-5.10.55"
+            toolchain_key: "toolchain-geminilakenk-7.4-90080"
+            toolchain_url: "https://global.synologydownload.com/download/ToolChain/toolchain/7.4-90080/Intel%20x86%20Linux%205.10.55%20%28geminilakenk%29/geminilakenk-gcc1220_glibc236_x86_64-GPL.txz"
+
+          # 7) DSM 7.4 r1000nk
+          - dsm_version: "7.4"
+            platform: "r1000nk"
+            kernel_ver: "5.10.55"
+            dsm_linux_branch: "r1000nk-7.4-5.10.55"
+            toolchain_key: "toolchain-r1000nk-7.4-90080"
+            toolchain_url: "https://global.synologydownload.com/download/ToolChain/toolchain/7.4-90080/AMD%20x86%20Linux%205.10.55%20%28r1000nk%29/r1000nk-gcc1220_glibc236_x86_64-GPL.txz"
+
+          # 8) DSM 7.4 v1000nk
+          - dsm_version: "7.4"
+            platform: "v1000nk"
+            kernel_ver: "5.10.55"
+            dsm_linux_branch: "v1000nk-7.4-5.10.55"
+            toolchain_key: "toolchain-v1000nk-7.4-90080"
+            toolchain_url: "https://global.synologydownload.com/download/ToolChain/toolchain/7.4-90080/AMD%20x86%20Linux%205.10.55%20%28v1000nk%29/v1000nk-gcc1220_glibc236_x86_64-GPL.txz"
+
+          # 9) DSM 7.4 epyc7003
+          - dsm_version: "7.4"
+            platform: "epyc7003"
+            kernel_ver: "5.10.55"
+            dsm_linux_branch: "epyc7003-7.4-5.10.55"
+            toolchain_key: "toolchain-epyc7003-7.4-90080"
+            toolchain_url: "https://global.synologydownload.com/download/ToolChain/toolchain/7.4-90080/AMD%20x86%20Linux%20Linux%205.10.55%20%28epyc7003%29/epyc7003-gcc1220_glibc236_x86_64-GPL.txz"
+
+          # 10) DSM 7.4 icelaked
+          - dsm_version: "7.4"
+            platform: "icelaked"
+            kernel_ver: "5.10.55"
+            dsm_linux_branch: "icelaked-7.4-5.10.55"
+            toolchain_key: "toolchain-icelaked-7.4-90080"
+            toolchain_url: "https://global.synologydownload.com/download/ToolChain/toolchain/7.4-90080/Intel%20x86%20Linux%205.10.55%20%28icelaked%29/icelaked-gcc1220_glibc236_x86_64-GPL.txz"
+
     env:
       DSM_LINUX_REPO: "https://github.com/PeterSuh-Q3/dsm_linux.git"
 
@@ -63,7 +111,7 @@ jobs:
 
       - name: Check platform filter
         run: |
-          FILTER="${{ inputs.platforms || 'epyc7002,geminilakenk,r1000nk,v1000nk' }}"
+          FILTER="${{ inputs.platforms || 'epyc7002,geminilakenk,r1000nk,v1000nk,epyc7003,icelaked' }}"
           if ! echo "$FILTER" | tr ',' '\n' | grep -qx "${{ matrix.platform }}"; then
             echo "SKIP=true" >> $GITHUB_ENV
             echo "Skipping ${{ matrix.platform }} (not in filter: $FILTER)"
@@ -587,6 +635,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "release: DSM 7.3 bzImage + modules for all 4 platforms (run ${{ github.run_id }})"
+            git commit -m "release: update bzImage + modules artifacts (run ${{ github.run_id }})"
             git push origin master
           fi
