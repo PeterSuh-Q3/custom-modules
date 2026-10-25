@@ -35,6 +35,8 @@
 #include <linux/ethtool.h>
 #include <linux/interrupt.h>
 #include <linux/version.h>
+#include <linux/atomic.h>
+#include <linux/spinlock.h>
 #include "r8168_dash.h"
 #include "r8168_realwow.h"
 #include "r8168_fiber.h"
@@ -512,7 +514,11 @@ do { \
 #define RSS_SUFFIX ""
 #endif
 
-#define RTL8168_VERSION "8.056.02" NAPI_SUFFIX FIBER_SUFFIX REALWOW_SUFFIX DASH_SUFFIX RSS_SUFFIX
+#ifdef ENABLE_MULTIPLE_TX_QUEUE
+#define RTL8168_VERSION "8.056.02" NAPI_SUFFIX FIBER_SUFFIX REALWOW_SUFFIX DASH_SUFFIX RSS_SUFFIX "-psq3.2b"
+#else
+#define RTL8168_VERSION "8.056.02" NAPI_SUFFIX FIBER_SUFFIX REALWOW_SUFFIX DASH_SUFFIX RSS_SUFFIX "-psq3.2a"
+#endif
 #ifndef MODULENAME
 #define MODULENAME "r8168"
 #endif
@@ -2016,6 +2022,22 @@ struct rtl8168_private {
         unsigned int min_irq_nvecs;
         unsigned int hw_supp_irq_nvecs;
         struct net_device_stats stats;  /* statistics of net device */
+        /* Pilot 2A counters are observational and never trigger recovery. */
+        atomic_t psq3_link_up;
+        atomic_t psq3_link_down;
+        atomic_t psq3_tx_timeout;
+        atomic_t psq3_reset_run;
+        atomic_t psq3_reset_skip;
+        atomic_t psq3_esd_recovery;
+        atomic_t psq3_resume;
+        atomic_t psq3_resume_fail;
+        atomic_t psq3_recovery_request;
+        atomic_t psq3_recovery_suppressed;
+        atomic_t psq3_test_injection;
+        spinlock_t psq3_recovery_lock;
+        unsigned long psq3_recovery_window;
+        unsigned int psq3_recovery_used;
+        bool psq3_test_attr_added;
         u32 msg_enable;
         u32 tx_tcp_csum_cmd;
         u32 tx_udp_csum_cmd;
