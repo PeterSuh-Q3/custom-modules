@@ -1,6 +1,3 @@
-#ifndef MY_ABC_HERE
-#define MY_ABC_HERE
-#endif
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  *  Copyright (C) 1995  Linus Torvalds
@@ -54,6 +51,10 @@
 #ifdef CONFIG_SYNO_KEXEC_TEST
 #include <linux/synolib.h>
 #endif /* CONFIG_SYNO_KEXEC_TEST */
+
+#ifdef CONFIG_SYNO_TTY_DTS_INFO
+extern void syno_setup_early_printk(void);
+#endif /* CONFIG_SYNO_TTY_DTS_INFO */
 
 /*
  * max_low_pfn_mapped: highest directly mapped pfn < 4 GB
@@ -1193,6 +1194,10 @@ void __init setup_arch(char **cmdline_p)
 	acpi_boot_init();
 	sfi_init();
 	x86_dtb_init();
+
+#ifdef CONFIG_SYNO_TTY_DTS_INFO
+	syno_setup_early_printk();
+#endif /* CONFIG_SYNO_TTY_DTS_INFO */
 
 	/*
 	 * get boot-time SMP configuration:
