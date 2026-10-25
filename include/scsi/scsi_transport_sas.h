@@ -12,7 +12,7 @@ struct scsi_transport_template;
 struct sas_rphy;
 struct request;
 
-#if !IS_ENABLED(CONFIG_SCSI_SAS_ATTRS)
+#if !IS_REACHABLE(CONFIG_SCSI_SAS_ATTRS)
 static inline int scsi_is_sas_rphy(const struct device *sdev)
 {
 	return 0;
