@@ -60,6 +60,8 @@
 #include <linux/init.h>
 #include <linux/rtnetlink.h>
 #include <linux/completion.h>
+#include <linux/atomic.h>
+#include <linux/capability.h>
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,26)
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5,4,0)
@@ -499,16 +501,16 @@ MODULE_PARM_DESC(autoneg_mode, "force phy operation. Deprecated by ethtool (8)."
 module_param(advertising_mode, uint, 0);
 MODULE_PARM_DESC(advertising_mode, "force phy operation. Deprecated by ethtool (8).");
 
-module_param(aspm, int, 0);
+module_param(aspm, int, 0444);
 MODULE_PARM_DESC(aspm, "Enable ASPM.");
 
-module_param(dynamic_aspm, int, 0);
+module_param(dynamic_aspm, int, 0444);
 MODULE_PARM_DESC(aspm, "Enable Software Dynamic ASPM.");
 
-module_param(s5wol, int, 0);
+module_param(s5wol, int, 0444);
 MODULE_PARM_DESC(s5wol, "Enable Shutdown Wake On Lan.");
 
-module_param(s5_keep_curr_mac, int, 0);
+module_param(s5_keep_curr_mac, int, 0444);
 MODULE_PARM_DESC(s5_keep_curr_mac, "Enable Shutdown Keep Current MAC Address.");
 
 module_param(use_dac, int, 0);
@@ -517,22 +519,22 @@ MODULE_PARM_DESC(use_dac, "Enable PCI DAC. Unsafe on 32 bit PCI slot.");
 module_param(timer_count, int, 0);
 MODULE_PARM_DESC(timer_count, "Timer Interrupt Interval.");
 
-module_param(eee_enable, int, 0);
+module_param(eee_enable, int, 0444);
 MODULE_PARM_DESC(eee_enable, "Enable Energy Efficient Ethernet.");
 
 module_param(hwoptimize, ulong, 0);
 MODULE_PARM_DESC(hwoptimize, "Enable HW optimization function.");
 
-module_param(s0_magic_packet, int, 0);
+module_param(s0_magic_packet, int, 0444);
 MODULE_PARM_DESC(s0_magic_packet, "Enable S0 Magic Packet.");
 
 module_param(dynamic_aspm_packet_threshold, int, 0);
 MODULE_PARM_DESC(dynamic_aspm_packet_threshold, "Dynamic ASPM packet threshold.");
 
-module_param(disable_wol_support, int, 0);
+module_param(disable_wol_support, int, 0444);
 MODULE_PARM_DESC(disable_wol_support, "Disable PM support.");
 
-module_param(eee_giga_lite, int, 0);
+module_param(eee_giga_lite, int, 0444);
 MODULE_PARM_DESC(eee_giga_lite, "Enable Giga Lite.");
 
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
@@ -565,6 +567,7 @@ MODULE_FIRMWARE(FIRMWARE_8168FP_3);
 MODULE_FIRMWARE(FIRMWARE_8168FP_4);
 #endif
 
+#include "psq3_build.h"
 MODULE_VERSION(RTL8168_VERSION);
 
 static void rtl8168_sleep_rx_enable(struct net_device *dev);
@@ -645,6 +648,9 @@ static void rtl8168_linkchg_task(struct work_struct *work);
 static void rtl8168_dash_task(struct work_struct *work);
 #endif
 static void rtl8168_schedule_reset_work(struct rtl8168_private *tp);
+#ifdef ENABLE_MULTIPLE_TX_QUEUE
+static int psq3_request_bounded_reset(struct rtl8168_private *tp);
+#endif
 static void rtl8168_schedule_esd_work(struct rtl8168_private *tp);
 static void rtl8168_schedule_linkchg_work(struct rtl8168_private *tp);
 void rtl8168_schedule_dash_work(struct rtl8168_private *tp);
@@ -5544,11 +5550,17 @@ rtl8168_check_link_status(struct net_device *dev)
 
         if (netif_carrier_ok(dev) != link_status_on) {
                 if (link_status_on) {
+                        atomic_inc(&tp->psq3_link_up);
+                        netdev_info(dev, "psq3 diag link up phy=%u carrier_before=%u mcfg=%u\n",
+                                    link_status_on, netif_carrier_ok(dev), tp->mcfg);
                         rtl8168_link_on_patch(dev);
 
                         if (netif_msg_ifup(tp))
                                 printk(KERN_INFO PFX "%s: link up\n", dev->name);
                 } else {
+                        atomic_inc(&tp->psq3_link_down);
+                        netdev_info(dev, "psq3 diag link down phy=%u carrier_before=%u mcfg=%u\n",
+                                    link_status_on, netif_carrier_ok(dev), tp->mcfg);
                         if (netif_msg_ifdown(tp))
                                 printk(KERN_INFO PFX "%s: link down\n", dev->name);
 
@@ -7367,6 +7379,17 @@ static const char rtl8168_gstrings[][ETH_GSTRING_LEN] = {
         "multicast",
         "tx_aborted",
         "tx_underrun",
+        "psq3_link_up",
+        "psq3_link_down",
+        "psq3_tx_timeout",
+        "psq3_reset_run",
+        "psq3_reset_skip",
+        "psq3_esd_recovery",
+        "psq3_resume",
+        "psq3_resume_fail",
+        "psq3_recovery_request",
+        "psq3_recovery_suppressed",
+        "psq3_test_injection",
 };
 #endif //#LINUX_VERSION_CODE > KERNEL_VERSION(2,4,22)
 
@@ -7476,6 +7499,17 @@ rtl8168_get_ethtool_stats(struct net_device *dev,
 
         counters = tp->tally_vaddr;
         paddr = tp->tally_paddr;
+        data[13] = atomic_read(&tp->psq3_link_up);
+        data[14] = atomic_read(&tp->psq3_link_down);
+        data[15] = atomic_read(&tp->psq3_tx_timeout);
+        data[16] = atomic_read(&tp->psq3_reset_run);
+        data[17] = atomic_read(&tp->psq3_reset_skip);
+        data[18] = atomic_read(&tp->psq3_esd_recovery);
+        data[19] = atomic_read(&tp->psq3_resume);
+        data[20] = atomic_read(&tp->psq3_resume_fail);
+        data[21] = atomic_read(&tp->psq3_recovery_request);
+        data[22] = atomic_read(&tp->psq3_recovery_suppressed);
+        data[23] = atomic_read(&tp->psq3_test_injection);
         if (!counters || test_bit(R8168_FLAG_SHUTDOWN, tp->task_flags))
                 return;
 
@@ -28428,6 +28462,9 @@ rtl8168_esd_checker(struct rtl8168_private *tp)
                 tp->esd_flag |= BIT_15;
 
         if (tp->esd_flag != 0) {
+                atomic_inc(&tp->psq3_esd_recovery);
+                netdev_warn(dev, "psq3 diag esd recovery flag=0x%x pci=%s\n",
+                            tp->esd_flag, pci_name(pdev));
                 printk(KERN_ERR "%s: esd_flag = 0x%04x\n.\n", dev->name, tp->esd_flag);
                 netif_carrier_off(dev);
                 netif_tx_disable(dev);
@@ -28753,6 +28790,34 @@ exit:
         return retval;
 }
 
+#ifdef ENABLE_MULTIPLE_TX_QUEUE
+/* Test-only control is per PCI function and root-only. */
+static ssize_t psq3_test_reset_store(struct device *device,
+                                     struct device_attribute *attr,
+                                     const char *buf, size_t count)
+{
+        struct pci_dev *pdev = to_pci_dev(device);
+        struct net_device *dev = pci_get_drvdata(pdev);
+        struct rtl8168_private *tp;
+        int rc;
+
+        if (!capable(CAP_SYS_ADMIN))
+                return -EPERM;
+        if (!sysfs_streq(buf, "1"))
+                return -EINVAL;
+        if (!dev)
+                return -ENODEV;
+        tp = netdev_priv(dev);
+        atomic_inc(&tp->psq3_test_injection);
+        rc = psq3_request_bounded_reset(tp);
+        if (rc)
+                return rc;
+        netdev_warn(dev, "psq3 test-only synthetic reset queued\n");
+        return count;
+}
+static DEVICE_ATTR_WO(psq3_test_reset);
+#endif
+
 static int __devinit
 rtl8168_init_one(struct pci_dev *pdev,
                  const struct pci_device_id *ent)
@@ -28774,11 +28839,28 @@ rtl8168_init_one(struct pci_dev *pdev,
                        MODULENAME, RTL8168_VERSION);
 
         rc = rtl8168_init_board(pdev, &dev, &ioaddr);
-        if (rc)
+        if (rc) {
+                dev_err(&pdev->dev, "psq3 diag init_board failed rc=%d\n", rc);
                 goto out;
+        }
 
         tp = netdev_priv(dev);
         assert(ioaddr != NULL);
+        atomic_set(&tp->psq3_link_up, 0);
+        atomic_set(&tp->psq3_link_down, 0);
+        atomic_set(&tp->psq3_tx_timeout, 0);
+        atomic_set(&tp->psq3_reset_run, 0);
+        atomic_set(&tp->psq3_reset_skip, 0);
+        atomic_set(&tp->psq3_esd_recovery, 0);
+        atomic_set(&tp->psq3_resume, 0);
+        atomic_set(&tp->psq3_resume_fail, 0);
+        atomic_set(&tp->psq3_recovery_request, 0);
+        atomic_set(&tp->psq3_recovery_suppressed, 0);
+        atomic_set(&tp->psq3_test_injection, 0);
+        spin_lock_init(&tp->psq3_recovery_lock);
+        tp->psq3_recovery_window = jiffies;
+        tp->psq3_recovery_used = 0;
+        tp->psq3_test_attr_added = false;
 
         tp->set_speed = rtl8168_set_speed_xmii;
         tp->get_settings = rtl8168_gset_xmii;
@@ -28960,8 +29042,21 @@ rtl8168_init_one(struct pci_dev *pdev,
         pci_set_drvdata(pdev, dev);
 
         rc = register_netdev(dev);
-        if (rc)
+        if (rc) {
+                dev_err(&pdev->dev, "psq3 diag register_netdev failed rc=%d mcfg=%u\n",
+                        rc, tp->mcfg);
                 goto err_out;
+        }
+        netdev_info(dev, "psq3 diag probe pci=%s mcfg=%u fw_name=%s irq_vectors=%u wol=%u\n",
+                    pci_name(pdev), tp->mcfg, tp->fw_name ? tp->fw_name : "none",
+                    tp->irq_nvecs, tp->wol_enabled);
+#ifdef ENABLE_MULTIPLE_TX_QUEUE
+        rc = device_create_file(&pdev->dev, &dev_attr_psq3_test_reset);
+        if (rc)
+                netdev_warn(dev, "psq3 test control unavailable rc=%d\n", rc);
+        else
+                tp->psq3_test_attr_added = true;
+#endif
 
         printk(KERN_INFO "%s: This product is covered by one or more of the following patents: US6,570,884, US6,115,776, and US6,327,625.\n", MODULENAME);
 
@@ -29036,6 +29131,10 @@ rtl8168_remove_one(struct pci_dev *pdev)
 #ifdef ENABLE_R8168_SYSFS
         rtl8168_sysfs_remove(dev);
 #endif //ENABLE_R8168_SYSFS
+#ifdef ENABLE_MULTIPLE_TX_QUEUE
+        if (tp->psq3_test_attr_added)
+                device_remove_file(&pdev->dev, &dev_attr_psq3_test_reset);
+#endif
 
         unregister_netdev(dev);
 #ifdef  CONFIG_R8168_NAPI
@@ -31117,9 +31216,15 @@ static void rtl8168_reset_task(struct work_struct *work)
 
         if (!netif_running(dev) ||
             test_bit(R8168_FLAG_DOWN, tp->task_flags) ||
-            !test_and_clear_bit(R8168_FLAG_TASK_RESET_PENDING, tp->task_flags))
+            !test_and_clear_bit(R8168_FLAG_TASK_RESET_PENDING, tp->task_flags)) {
+                atomic_inc(&tp->psq3_reset_skip);
                 goto out_unlock;
+        }
 
+        atomic_inc(&tp->psq3_reset_run);
+        netdev_warn(dev, "psq3 diag reset run carrier=%u tx0_cur=%u tx0_dirty=%u pci=%s\n",
+                    netif_carrier_ok(dev), tp->tx_ring[0].cur_tx,
+                    tp->tx_ring[0].dirty_tx, pci_name(tp->pci_dev));
         netdev_err(dev, "Device reseting!\n");
 
         netif_carrier_off(dev);
@@ -31226,6 +31331,50 @@ out_unlock:
         rtnl_unlock();
 }
 
+#ifdef ENABLE_MULTIPLE_TX_QUEUE
+/*
+ * Only TX-timeout and test requests consume this provisional budget.
+ * Resume keeps the vendor reset path, so a failed resume is not blocked.
+ */
+static int psq3_request_bounded_reset(struct rtl8168_private *tp)
+{
+        unsigned long flags;
+        int rc = 0;
+
+        if (!netif_running(tp->dev) ||
+            test_bit(R8168_FLAG_DOWN, tp->task_flags))
+                rc = -EBUSY;
+        else if (test_bit(R8168_FLAG_TASK_RESET_PENDING, tp->task_flags))
+                rc = -EALREADY;
+        if (rc)
+                goto suppressed;
+
+        spin_lock_irqsave(&tp->psq3_recovery_lock, flags);
+        if (time_after(jiffies, tp->psq3_recovery_window + 10 * 60 * HZ)) {
+                tp->psq3_recovery_window = jiffies;
+                tp->psq3_recovery_used = 0;
+        }
+        if (tp->psq3_recovery_used >= 3)
+                rc = -EAGAIN;
+        else
+                tp->psq3_recovery_used++;
+        spin_unlock_irqrestore(&tp->psq3_recovery_lock, flags);
+        if (rc)
+                goto suppressed;
+
+        atomic_inc(&tp->psq3_recovery_request);
+        rtl8168_schedule_reset_work(tp);
+        return 0;
+
+suppressed:
+        atomic_inc(&tp->psq3_recovery_suppressed);
+        dev_warn_ratelimited(&tp->pci_dev->dev,
+                             "psq3 recovery suppressed rc=%d requests=%d\n",
+                             rc, atomic_read(&tp->psq3_recovery_request));
+        return rc;
+}
+#endif
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5,6,0)
 static void
 rtl8168_tx_timeout(struct net_device *dev, unsigned int txqueue)
@@ -31236,10 +31385,18 @@ rtl8168_tx_timeout(struct net_device *dev)
 {
         struct rtl8168_private *tp = netdev_priv(dev);
 
+        atomic_inc(&tp->psq3_tx_timeout);
+        netdev_warn(dev, "psq3 diag tx timeout carrier=%u tx0_cur=%u tx0_dirty=%u pci=%s\n",
+                    netif_carrier_ok(dev), tp->tx_ring[0].cur_tx,
+                    tp->tx_ring[0].dirty_tx, pci_name(tp->pci_dev));
         netdev_err(dev, "Transmit timeout reset Device!\n");
 
         /* Let's wait a bit while any (async) irq lands on */
+ #ifdef ENABLE_MULTIPLE_TX_QUEUE
+        psq3_request_bounded_reset(tp);
+ #else
         rtl8168_schedule_reset_work(tp);
+ #endif
 }
 
 static u32
@@ -32552,8 +32709,11 @@ rtl8168_resume(struct device *device)
 
         set_bit(R8168_FLAG_SUSPEND, tp->task_flags);
 
+        atomic_inc(&tp->psq3_resume);
         err = pci_enable_device(pdev);
         if (err) {
+                atomic_inc(&tp->psq3_resume_fail);
+                dev_err(&pdev->dev, "psq3 diag resume pci_enable_device failed rc=%d\n", err);
                 dev_err(&pdev->dev, "Cannot enable PCI device from suspend\n");
                 goto out_unlock;
         }
@@ -32590,6 +32750,8 @@ rtl8168_resume(struct device *device)
         rtl8168_hw_config(dev);
 
         clear_bit(R8168_FLAG_DOWN, tp->task_flags);
+        netdev_info(dev, "psq3 diag resume pci=%s mcfg=%u reset_queued=1\n",
+                    pci_name(pdev), tp->mcfg);
 
         rtl8168_schedule_reset_work(tp);
 
