@@ -8,6 +8,9 @@ on:
         required: false
         default: 'epyc7002,geminilakenk,r1000nk,v1000nk,epyc7003,icelaked'
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -96,9 +99,6 @@ jobs:
             toolchain_key: "toolchain-icelaked-7.4-90080"
             toolchain_url: "https://global.synologydownload.com/download/ToolChain/toolchain/7.4-90080/Intel%20x86%20Linux%205.10.55%20%28icelaked%29/icelaked-gcc1220_glibc236_x86_64-GPL.txz"
 
-    env:
-      DSM_LINUX_REPO: "https://github.com/PeterSuh-Q3/dsm_linux.git"
-
     steps:
       - name: Checkout build scripts
         uses: actions/checkout@v4
@@ -142,14 +142,13 @@ jobs:
           tar -Jxf /tmp/toolchain.txz -C "$TOOLCHAIN_DIR"
           rm -f /tmp/toolchain.txz
 
-      - name: Clone dsm_linux (specific branch)
+      - name: Checkout Codex Realtek GPL source branch
         if: env.SKIP != 'true'
-        run: |
-          set -eux
-          rm -rf "$KERNEL_SRC_DIR"
-          git clone --depth 1 --single-branch \
-            -b "${{ matrix.dsm_linux_branch }}" \
-            "$DSM_LINUX_REPO" "$KERNEL_SRC_DIR"
+        uses: actions/checkout@v4
+        with:
+          ref: codex/realtek-${{ matrix.dsm_linux_branch }}
+          path: dsm_linux
+          fetch-depth: 1
 
       - name: Export Synology libata callbacks for sata_sil24
         if: env.SKIP != 'true'
