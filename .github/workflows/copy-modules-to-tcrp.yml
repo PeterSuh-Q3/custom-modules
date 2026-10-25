@@ -1,4 +1,4 @@
-name: Copy Module Tarballs to tcrp-modules
+name: Copy Module Tarballs and bzImage to release repositories
 
 on:
   workflow_dispatch:
@@ -11,7 +11,7 @@ on:
 
 jobs:
   copy:
-    name: Copy .tgz to tcrp-modules and update JSON sha256
+    name: Copy 10 module packages and bzImage images
     runs-on: ubuntu-latest
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
 
@@ -39,44 +39,53 @@ jobs:
           path: redpill-load
           token: ${{ secrets.PAT }}
 
-      - name: Copy tarballs and update JSON sha256
+      - name: Copy 10 module tarballs and update JSON sha256
         run: |
           set -eux
           RELEASES="tcrp-modules/custom-modules/releases"
-          SOURCE_DSM_VER="7.3"
           KVER="5.10.55"
+          TARGETS=(
+            "epyc7002 7.3"
+            "geminilakenk 7.3"
+            "r1000nk 7.3"
+            "v1000nk 7.3"
+            "epyc7002 7.4"
+            "geminilakenk 7.4"
+            "r1000nk 7.4"
+            "v1000nk 7.4"
+            "epyc7003 7.4"
+            "icelaked 7.4"
+          )
 
-          for PLATFORM in epyc7002 geminilakenk r1000nk v1000nk; do
-            SRC="custom-modules/${PLATFORM}-${SOURCE_DSM_VER}-${KVER}.tgz"
+          for TARGET in "${TARGETS[@]}"; do
+            read -r PLATFORM DSM_VER <<< "$TARGET"
+            TGZ="${PLATFORM}-${DSM_VER}-${KVER}.tgz"
+            SRC="custom-modules/${TGZ}"
 
             if [ ! -f "$SRC" ]; then
               echo "ERROR: $SRC not found"
               exit 1
             fi
 
-            # 7.4 uses the same 5.10.55 build as 7.3, under a 7.4 filename.
-            for DSM_VER in 7.3 7.4; do
-              TGZ="${PLATFORM}-${DSM_VER}-${KVER}.tgz"
-              DST="${RELEASES}/${TGZ}"
-              JSON_PATH="${RELEASES}/${PLATFORM}-${DSM_VER}.json"
+            DST="${RELEASES}/${TGZ}"
+            JSON_PATH="${RELEASES}/${PLATFORM}-${DSM_VER}.json"
 
-              cp "$SRC" "$DST"
-              NEW_SHA=$(sha256sum "$DST" | awk '{print $1}')
-              echo "${PLATFORM} ${DSM_VER}: ${NEW_SHA}"
+            cp "$SRC" "$DST"
+            NEW_SHA=$(sha256sum "$DST" | awk '{print $1}')
+            echo "${PLATFORM} ${DSM_VER}: ${NEW_SHA}"
 
-              if [ ! -f "$JSON_PATH" ]; then
-                echo "ERROR: $JSON_PATH not found"
-                exit 1
-              fi
-              if ! jq -e --arg name "$TGZ" 'any(.files[]; .name == $name)' "$JSON_PATH" > /dev/null; then
-                echo "ERROR: $JSON_PATH does not reference $TGZ"
-                exit 1
-              fi
-              jq --arg name "$TGZ" --arg sha "$NEW_SHA" \
-                '.files |= map(if .name == $name then .sha256 = $sha else . end)' \
-                "$JSON_PATH" > /tmp/updated.json && mv /tmp/updated.json "$JSON_PATH"
-              echo "Updated $JSON_PATH"
-            done
+            if [ ! -f "$JSON_PATH" ]; then
+              echo "ERROR: $JSON_PATH not found"
+              exit 1
+            fi
+            if ! jq -e --arg name "$TGZ" 'any(.files[]; .name == $name)' "$JSON_PATH" > /dev/null; then
+              echo "ERROR: $JSON_PATH does not reference $TGZ"
+              exit 1
+            fi
+            jq --arg name "$TGZ" --arg sha "$NEW_SHA" \
+              '.files |= map(if .name == $name then .sha256 = $sha else . end)' \
+              "$JSON_PATH" > /tmp/updated.json && mv /tmp/updated.json "$JSON_PATH"
+            echo "Updated $JSON_PATH"
           done
 
       - name: Commit and push to tcrp-modules
@@ -93,27 +102,37 @@ jobs:
             git push origin main
           fi
 
-      - name: Copy bzImage files to redpill-load
+      - name: Copy 10 bzImage files to redpill-load/ext/custom-zImage
         run: |
           set -eux
-          SOURCE_DSM_VER="7.3"
           KVER="5.10.55"
           ZIMAGE_DST="redpill-load/ext/custom-zImage"
           mkdir -p "$ZIMAGE_DST"
+          TARGETS=(
+            "epyc7002 7.3"
+            "geminilakenk 7.3"
+            "r1000nk 7.3"
+            "v1000nk 7.3"
+            "epyc7002 7.4"
+            "geminilakenk 7.4"
+            "r1000nk 7.4"
+            "v1000nk 7.4"
+            "epyc7003 7.4"
+            "icelaked 7.4"
+          )
 
-          for PLATFORM in epyc7002 geminilakenk r1000nk v1000nk; do
-            SRC="custom-modules/bzImage-${PLATFORM}-${SOURCE_DSM_VER}-${KVER}.gz"
+          for TARGET in "${TARGETS[@]}"; do
+            read -r PLATFORM DSM_VER <<< "$TARGET"
+            BZIMAGE="bzImage-${PLATFORM}-${DSM_VER}-${KVER}.gz"
+            SRC="custom-modules/${BZIMAGE}"
 
             if [ ! -f "$SRC" ]; then
               echo "ERROR: $SRC not found"
               exit 1
             fi
 
-            for DSM_VER in 7.3 7.4; do
-              BZIMAGE="bzImage-${PLATFORM}-${DSM_VER}-${KVER}.gz"
-              cp "$SRC" "${ZIMAGE_DST}/${BZIMAGE}"
-              echo "Copied: ${BZIMAGE}"
-            done
+            cp "$SRC" "${ZIMAGE_DST}/${BZIMAGE}"
+            echo "Copied: ${BZIMAGE}"
           done
 
       - name: Commit and push bzImage to redpill-load
