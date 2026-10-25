@@ -552,7 +552,7 @@ jobs:
             make -j"$(nproc)" \
               HOSTCC="gcc -Wno-error=use-after-free -Wno-error=array-bounds -Wno-error=dangling-pointer" \
               HOSTCXX="g++ -Wno-error=use-after-free -Wno-error=array-bounds" \
-              EXTRA_CFLAGS="-Wno-error=use-after-free" \
+              KCFLAGS="-Wno-error=use-after-free" \
               bzImage
             if [ ! -f "arch/x86/boot/bzImage" ]; then
               echo "ERROR: arch/x86/boot/bzImage not found!"
@@ -568,7 +568,8 @@ jobs:
             make -j"$(nproc)" \
               HOSTCC="gcc -Wno-error=use-after-free -Wno-error=array-bounds -Wno-error=dangling-pointer" \
               HOSTCXX="g++ -Wno-error=use-after-free -Wno-error=array-bounds" \
-              EXTRA_CFLAGS="-Wno-error=use-after-free" \
+              KCFLAGS="-Wno-error=use-after-free" \
+              CFLAGS_r8152.o="-DRTL8152_S5_WOL" \
               modules
 
             MODULES_INSTALL_DIR="$BUILD_OUTPUT_DIR/modules_root-${OUT_TAG}"
