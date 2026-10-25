@@ -1,6 +1,3 @@
-#ifndef MY_ABC_HERE
-#define MY_ABC_HERE
-#endif
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
    Copyright (C) 2002 Richard Henderson
@@ -1001,14 +998,14 @@ SYSCALL_DEFINE2(delete_module, const char __user *, name_user,
 
 	audit_log_kern_module(name);
 
-#ifdef MY_ABC_HERE
+#ifdef CONFIG_SYNO_KERNEL_MODULE_REMOVAL_LOGGING
 	/*
 	 * Auditing system of CURRENT kernel knows module loading/unloading
 	 * events. It is recommended that removing this logging at the next
 	 * upgrading kernel of DSM.
 	 */
 	pr_warn("Module [%s] is removed. \n", name);
-#endif /* MY_ABC_HERE */
+#endif /* CONFIG_SYNO_KERNEL_MODULE_REMOVAL_LOGGING */
 
 	if (mutex_lock_interruptible(&module_mutex) != 0)
 		return -EINTR;
@@ -4752,7 +4749,7 @@ void module_layout(struct module *mod,
 EXPORT_SYMBOL(module_layout);
 #endif
 
-#ifdef MY_ABC_HERE
+#ifdef CONFIG_SYNO_OOM_DEBUG
 void syno_dump_modules(void)
 {
 	struct module *mod;
@@ -4768,5 +4765,5 @@ void syno_dump_modules(void)
 	}
 }
 EXPORT_SYMBOL_GPL(syno_dump_modules);
-#endif /* MY_ABC_HERE */
+#endif /* CONFIG_SYNO_OOM_DEBUG */
 
