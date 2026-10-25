@@ -101,11 +101,11 @@ build_device_tree()
 INFO "Generate .config for architecture $ARCH platform $PLATFORM_ABBR"
 kconfig_generate
 
-# INFO "Copying signing_key and certification from build system"
-# build_certification
+INFO "Copying signing_key and certification from build system"
+build_certification
 
-# build_public_key
-# build_seed
+build_public_key
+build_seed
 build_version
 
 INFO "Build Synology linux kernel $(make -s kernelversion)"

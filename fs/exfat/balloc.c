@@ -1,6 +1,3 @@
-#ifndef MY_ABC_HERE
-#define MY_ABC_HERE
-#endif
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  *  Copyright (C) 2012-2013 Samsung Electronics Co., Ltd.
@@ -10,6 +7,7 @@
 #include <linux/slab.h>
 #include <linux/buffer_head.h>
 
+#include "exfat_raw.h"
 #include "exfat_fs.h"
 
 static const unsigned char free_bit[] = {
@@ -71,12 +69,8 @@ static int exfat_allocate_bitmap(struct super_block *sb,
 	}
 	sbi->map_sectors = ((need_map_size - 1) >>
 			(sb->s_blocksize_bits)) + 1;
-#ifdef MY_ABC_HERE
-	sbi->vol_amap = kvmalloc(sbi->map_sectors * sizeof(struct buffer_head *), GFP_KERNEL);
-#else
 	sbi->vol_amap = kmalloc_array(sbi->map_sectors,
 				sizeof(struct buffer_head *), GFP_KERNEL);
-#endif /* MY_ABC_HERE */
 	if (!sbi->vol_amap)
 		return -ENOMEM;
 
@@ -90,11 +84,7 @@ static int exfat_allocate_bitmap(struct super_block *sb,
 			while (j < i)
 				brelse(sbi->vol_amap[j++]);
 
-#ifdef MY_ABC_HERE
-			kvfree(sbi->vol_amap);
-#else
 			kfree(sbi->vol_amap);
-#endif /* MY_ABC_HERE */
 			sbi->vol_amap = NULL;
 			return -EIO;
 		}
@@ -148,17 +138,9 @@ void exfat_free_bitmap(struct exfat_sb_info *sbi)
 	for (i = 0; i < sbi->map_sectors; i++)
 		__brelse(sbi->vol_amap[i]);
 
-#ifdef MY_ABC_HERE
-	kvfree(sbi->vol_amap);
-#else
 	kfree(sbi->vol_amap);
-#endif /* MY_ABC_HERE */
 }
 
-/*
- * If the value of "clu" is 0, it means cluster 2 which is the first cluster of
- * the cluster heap.
- */
 int exfat_set_bitmap(struct inode *inode, unsigned int clu)
 {
 	int i, b;
@@ -171,19 +153,11 @@ int exfat_set_bitmap(struct inode *inode, unsigned int clu)
 	i = BITMAP_OFFSET_SECTOR_INDEX(sb, ent_idx);
 	b = BITMAP_OFFSET_BIT_IN_SECTOR(sb, ent_idx);
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
 	set_bit_le(b, sbi->vol_amap[i]->b_data);
-#else
-	test_and_set_bit_le(b, sbi->vol_amap[i]->b_data);
-#endif
 	exfat_update_bh(sbi->vol_amap[i], IS_DIRSYNC(inode));
 	return 0;
 }
 
-/*
- * If the value of "clu" is 0, it means cluster 2 which is the first cluster of
- * the cluster heap.
- */
 void exfat_clear_bitmap(struct inode *inode, unsigned int clu)
 {
 	int i, b;
@@ -197,19 +171,14 @@ void exfat_clear_bitmap(struct inode *inode, unsigned int clu)
 	i = BITMAP_OFFSET_SECTOR_INDEX(sb, ent_idx);
 	b = BITMAP_OFFSET_BIT_IN_SECTOR(sb, ent_idx);
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
 	clear_bit_le(b, sbi->vol_amap[i]->b_data);
-#else
-	test_and_clear_bit_le(b, sbi->vol_amap[i]->b_data);
-#endif
 	exfat_update_bh(sbi->vol_amap[i], IS_DIRSYNC(inode));
 
 	if (opts->discard) {
 		int ret_discard;
 
 		ret_discard = sb_issue_discard(sb,
-			exfat_cluster_to_sector(sbi, clu +
-						EXFAT_RESERVED_CLUSTERS),
+			exfat_cluster_to_sector(sbi, clu),
 			(1 << sbi->sect_per_clus_bits), GFP_NOFS, 0);
 
 		if (ret_discard == -EOPNOTSUPP) {

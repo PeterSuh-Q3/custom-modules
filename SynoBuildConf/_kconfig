@@ -32,10 +32,7 @@ kconfig_check_syno_macro()
     done
 
     # all syno macros should be defined in kconfig.
-    # toolkit: ds.epyc7002-7.2.env
-    # toolchain: epyc7002-gcc1220_glibc236_x86_64-GPL (Not used)
-    find . \( -path './.git' -o -path './SynoBuildConf' -o -path './ds.*' -o -path './drivers/syno' \) -prune -o -type f -exec \
-        grep -rohE --exclude="*.patch" "[/]*((#ifdef)|(#defined))[[:space:]]*\(?CONFIG_SYNO([[:alnum:]]|_)*" {} + \
+    grep -rohE --exclude-dir={.git,SynoBuildConf} --exclude="*.patch" "[/]*((#ifdef)|(#defined))[[:space:]]*\(?CONFIG_SYNO([[:alnum:]]|_)*" \
         | grep -v "^//" \
         | awk -F 'CONFIG_' '{ print $2 }' \
         | while IFS= read -r _m
@@ -47,20 +44,14 @@ kconfig_check_syno_macro()
     done
 
     # '#ifndef CONFIG_SYNO*' isn't allowed.
-    # toolkit: ds.epyc7002-7.2.env
-    # toolchain: epyc7002-gcc1220_glibc236_x86_64-GPL (Not used)
-    if find . \( -path './.git' -o -path './SynoBuildConf' -o -path './ds.*' -o -path './drivers/syno' \) -prune -o -type f -exec \
-        grep -roE "ifndef[[:space:]]*CONFIG_SYNO" {} +; then
+    if grep -roE --exclude-dir={.git,SynoBuildConf} "ifndef[[:space:]]*CONFIG_SYNO"; then
         ERROR "'#ifndef' isn't allowed with syno macros"
         return 1
     fi
 
     # all syno macros should start with prefix SYNO_
-    # toolkit: ds.epyc7002-7.2.env
-    # toolchain: epyc7002-gcc1220_glibc236_x86_64-GPL (Not used)
-    if find . \( -path './.git' -o -path './SynoBuildConf' -o -path './ds.*' -o -path './drivers/syno' \) -prune -o -type f -exec \
-        grep -roE "((ifdef)|(defined))[[:space:]]*\(?SYNO([[:alnum:]]|_)*" {} + \
-		| grep -v -e SYNO_EXPORT_CONFIG -e SYNO_FS_SYNO_ACL; then
+    if grep -roE --exclude-dir={.git,SynoBuildConf} "((ifdef)|(defined))[[:space:]]*\(?SYNO([[:alnum:]]|_)*" \
+		| grep -v SYNO_EXPORT_CONFIG; then
         ERROR "all syno macros should start with prefix SYNO_"
         return 1
     fi
