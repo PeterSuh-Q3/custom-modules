@@ -72,7 +72,7 @@ config SYNO_VIRTIO_SCSI_DEVICE
 config SYNO_KVMX64_PCI_SLOT_BOOT
 	int "Reserve virtio pci slot for synoboot"
 	default 10
-	depends on (SYNO_KVMX64 || SYNO_NEXTKVMX64 || SYNO_KVMX64SOFS || SYNO_KVMX64V2 || SYNO_VIRTIO_SCSI_DEVICE)
+	depends on (SYNO_KVMX64 || SYNO_NEXTKVMX64 || SYNO_KVMX64SOFS || SYNO_KVMX64V2)
 
 config SYNO_ECC_NOTIFICATION
 	bool "Add ECC notification support"
@@ -99,6 +99,10 @@ config SYNO_MULTI_KSWAPD
 
 config SYNO_ADJUST_KSWAPD_NICE
 	bool "increase kswapd priority"
+	default y
+
+config SYNO_AVOID_ZRAM_ZEROED_PAGES
+	bool "Avoid zeroed pages in zram"
 	default y
 
 endmenu #System Features

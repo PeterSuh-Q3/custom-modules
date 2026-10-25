@@ -1,6 +1,3 @@
-#ifndef MY_ABC_HERE
-#define MY_ABC_HERE
-#endif
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
  *  linux/boot/head.S

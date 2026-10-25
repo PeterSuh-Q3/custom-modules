@@ -1,6 +1,3 @@
-#ifndef MY_ABC_HERE
-#define MY_ABC_HERE
-#endif
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  *  linux/kernel/fork.c
@@ -99,10 +96,6 @@
 #include <linux/kasan.h>
 #include <linux/scs.h>
 #include <linux/io_uring.h>
-
-#ifdef CONFIG_USER_NS
-#include <linux/user_namespace.h>
-#endif
 
 #include <asm/pgalloc.h>
 #include <linux/uaccess.h>
@@ -561,11 +554,11 @@ static __latent_entropy int dup_mmap(struct mm_struct *mm,
 			struct inode *inode = file_inode(file);
 			struct address_space *mapping = file->f_mapping;
 
-#ifdef MY_ABC_HERE
+#ifdef CONFIG_SYNO_AUFS_PATCH
 			vma_get_file(tmp);
 #else
 			get_file(file);
-#endif /* MY_ABC_HERE */
+#endif /* CONFIG_SYNO_AUFS_PATCH */
 			if (tmp->vm_flags & VM_DENYWRITE)
 				put_write_access(inode);
 			i_mmap_lock_write(mapping);
@@ -1882,10 +1875,6 @@ static __latent_entropy struct task_struct *copy_process(
 	if ((clone_flags & (CLONE_NEWUSER|CLONE_FS)) == (CLONE_NEWUSER|CLONE_FS))
 		return ERR_PTR(-EINVAL);
 
-	if ((clone_flags & CLONE_NEWUSER) && !unprivileged_userns_clone)
-		if (!capable(CAP_SYS_ADMIN))
-			return ERR_PTR(-EPERM);
-
 	/*
 	 * Thread groups must share signals as well, and detached threads
 	 * can only be started up within the thread group.
@@ -2003,14 +1992,14 @@ static __latent_entropy struct task_struct *copy_process(
 	 */
 	retval = -EAGAIN;
 	if (data_race(nr_threads >= max_threads))
-#ifdef MY_ABC_HERE
+#ifdef CONFIG_SYNO_OUT_OF_RESOURCE_LOG
 	{
 		pr_err_ratelimited("fork over limit, threads-max = %d", max_threads);
 		goto bad_fork_cleanup_count;
 	}
-#else /* MY_ABC_HERE */
+#else /* CONFIG_SYNO_OUT_OF_RESOURCE_LOG */
 		goto bad_fork_cleanup_count;
-#endif /* MY_ABC_HERE */
+#endif /* CONFIG_SYNO_OUT_OF_RESOURCE_LOG */
 
 	delayacct_tsk_init(p);	/* Must remain after dup_task_struct() */
 	p->flags &= ~(PF_SUPERPRIV | PF_WQ_WORKER | PF_IDLE);
@@ -2049,7 +2038,7 @@ static __latent_entropy struct task_struct *copy_process(
 	p->psi_flags = 0;
 #endif
 
-#ifdef MY_ABC_HERE
+#ifdef CONFIG_SYNO_KWORK_STAT
 	p->workacct = NULL;
 #endif
 
@@ -2962,12 +2951,6 @@ int ksys_unshare(unsigned long unshare_flags)
 	if (unshare_flags & CLONE_NEWNS)
 		unshare_flags |= CLONE_FS;
 
-	if ((unshare_flags & CLONE_NEWUSER) && !unprivileged_userns_clone) {
-		err = -EPERM;
-		if (!capable(CAP_SYS_ADMIN))
-			goto bad_unshare_out;
-	}
-
 	err = check_unshare_flags(unshare_flags);
 	if (err)
 		goto bad_unshare_out;
@@ -2991,12 +2974,6 @@ int ksys_unshare(unsigned long unshare_flags)
 					 new_cred, new_fs);
 	if (err)
 		goto bad_unshare_cleanup_cred;
-
-	if (new_cred) {
-		err = set_cred_ucounts(new_cred);
-		if (err)
-			goto bad_unshare_cleanup_cred;
-	}
 
 	if (new_fs || new_fd || do_sysvsem || new_cred || new_nsproxy) {
 		if (do_sysvsem) {
